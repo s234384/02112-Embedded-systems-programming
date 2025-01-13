@@ -1,0 +1,76 @@
+#include <stdio.h>
+#include "sdkconfig.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_chip_info.h"
+#include "esp_flash.h"
+#include <string.h>
+#include "esp_log.h"
+
+//Driver libraries
+#include "driver/gpio.h"
+#include "driver/adc.h"
+
+
+
+#define RED_LED_GPIO 1
+
+static TimerHandle_t one_shot_timer = NULL;
+
+int timerTriggered = 0;
+
+void myTimerCallback(TimerHandle_t xTimer){
+    gpio_set_level(RED_LED_GPIO, 0);
+    timerTriggered = 1;
+}
+
+void setuptimer(){
+one_shot_timer = xTimerCreate(
+    "One-shot timer",           //name of timer
+    2000/portTICK_PERIOD_MS,    //Period of timer (in ticks)
+    pdFALSE,                    //Auto-reload
+    (void*)0,                   //Timer ID
+    myTimerCallback);           //Callback function 
+}
+
+
+
+
+// note: you can not debug wile usign pin one because it is dedicated to commport communication
+// so no termial output while using pin 0 and pin 1.
+void LedConfig(){
+    gpio_config_t io_conf;
+    xTimerStart(one_shot_timer,portMAX_DELAY);
+
+    // Configure RED LED GPIO
+    io_conf.pin_bit_mask = (1ULL << RED_LED_GPIO);
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    gpio_config(&io_conf);
+    
+}
+
+
+void app_main(void)
+{
+    LedConfig();
+    setuptimer();
+    printf("Hello! Starting oneshot timer now \n");
+    xTimerStart(one_shot_timer,5000);
+    gpio_set_level(RED_LED_GPIO, 1);
+
+
+
+while(timerTriggered == 0){
+
+}
+
+printf("should have triggered now ......)\n");
+
+    
+    //This would automatically restart the ESP32
+    //esp_restart();
+}
+
+
+// debugging would just give a infinitly rebooting loob because of trying to use pin 1 as gpio port
